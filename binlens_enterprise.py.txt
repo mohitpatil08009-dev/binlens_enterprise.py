@@ -1,0 +1,389 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import time
+import random
+from datetime import datetime
+
+# ==============================================================================
+# 1. ENTERPRISE CONFIGURATION & CSS (High Fidelity UI)
+# ==============================================================================
+st.set_page_config(page_title="BinLens Pro", layout="wide", page_icon="♻️")
+
+# Custom CSS to force "Android Mobile" look on a desktop browser
+android_css = """
+<style>
+    /* Main Background - Dark Backdrop */
+    .stApp {
+        background-color: #262626;
+        display: flex;
+        justify-content: center;
+    }
+    
+    /* The Mobile Frame Container */
+    .mobile-frame {
+        width: 375px;
+        height: 812px;
+        background-color: #F5F7FA;
+        border-radius: 40px;
+        border: 12px solid #1a1a1a;
+        box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        overflow-y: auto;
+        position: relative;
+        font-family: 'Roboto', sans-serif;
+        margin: auto;
+    }
+
+    /* Notch & Status Bar */
+    .notch {
+        height: 30px;
+        background: #1a1a1a;
+        border-radius: 0 0 20px 20px;
+        width: 50%;
+        margin: 0 auto;
+        position: sticky;
+        top: 0;
+        z-index: 999;
+    }
+    
+    /* App Header */
+    .app-header {
+        background: white;
+        padding: 15px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+        position: fixed;
+        bottom: 20px; /* Adjusted for Streamlit padding */
+        width: 350px; /* Fit inside frame */
+        background: white;
+        padding: 15px;
+        border-radius: 20px;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-around;
+        z-index: 999;
+        margin-left: 0px;
+    }
+
+    /* Card Styling */
+    .card {
+        background: white;
+        padding: 15px;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 12px;
+        border: 1px solid #f0f0f0;
+    }
+    
+    /* Buttons */
+    .btn-primary {
+        background: #2ECC71;
+        color: white;
+        padding: 12px;
+        border-radius: 12px;
+        text-align: center;
+        font-weight: bold;
+        cursor: pointer;
+        display: block;
+        text-decoration: none;
+    }
+    
+    /* Driver Dark Mode Overrides */
+    .driver-mode {
+        background-color: #121212 !important;
+        color: white !important;
+    }
+    .driver-card {
+        background-color: #1E1E1E !important;
+        border: 1px solid #333 !important;
+    }
+</style>
+"""
+st.markdown(android_css, unsafe_allow_html=True)
+
+# ==============================================================================
+# 2. SCALABLE BACKEND SIMULATION (Classes & Logic)
+# ==============================================================================
+
+class WasteSystem:
+    def __init__(self):
+        # Initializing State Variables
+        if 'users' not in st.session_state:
+            st.session_state.users = {
+                "9876543210": {"role": "citizen", "name": "Rohan", "ward": "17", "coins": 450, "streak": 7},
+                "driver123": {"role": "driver", "name": "Basavaraj", "zone": "3", "rating": 4.8},
+                "shop123": {"role": "merchant", "name": "Excellent Computers", "balance": 5000},
+                "admin1": {"role": "admin", "name": "Zonal Officer"}
+            }
+        
+    def login(self, phone):
+        return st.session_state.users.get(phone, None)
+
+    def process_ai_scan(self):
+        time.sleep(1.5) # Simulate TensorFlow Lite latency
+        # Logic: 70% Clean, 20% Contaminated, 10% Hazardous
+        outcome = random.choices(
+            ['clean_dry', 'greasy_wet', 'hazardous'], 
+            weights=[0.7, 0.2, 0.1]
+        )[0]
+        return outcome
+
+    def get_truck_eta(self, ward_id):
+        # Simulate API call to Smart City GPS
+        base_eta = 5 # minutes
+        traffic_delay = random.randint(0, 5)
+        return base_eta + traffic_delay
+
+    def generate_epr_report(self):
+        # Generate dummy data for Admin Dashboard
+        data = {
+            "Month": ["Jan", "Feb", "Mar", "Apr", "May"],
+            "PET (Tons)": [10, 12, 15, 18, 22],
+            "MLP (Tons)": [5, 6, 8, 7, 9]
+        }
+        return pd.DataFrame(data)
+
+# Initialize System
+system = WasteSystem()
+
+# ==============================================================================
+# 3. COMPONENT LIBRARY (Reusable UI Widgets)
+# ==============================================================================
+
+def render_mobile_header(title, show_back=False):
+    back_btn = "⬅️" if show_back else "☰"
+    st.markdown(f"""
+        <div class='app-header'>
+            <span style='font-size:20px; cursor:pointer;'>{back_btn}</span>
+            <span style='font-weight:bold; font-size:18px;'>{title}</span>
+            <span>🔔</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+def render_nav_bar():
+    # Only for citizen
+    if st.session_state.get('role') == 'citizen':
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: st.button("🏠", key="nav_home", help="Home", on_click=lambda: set_page('citizen_home'))
+        with c2: st.button("👁️", key="nav_scan", help="Scan", on_click=lambda: set_page('citizen_scan'))
+        with c3: st.button("🛍️", key="nav_shop", help="Market", on_click=lambda: set_page('citizen_market'))
+        with c4: st.button("👤", key="nav_profile", help="Profile", on_click=lambda: set_page('settings'))
+
+# Navigation State Handler
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 'login'
+
+def set_page(page):
+    st.session_state.current_page = page
+    st.rerun()
+
+# ==============================================================================
+# 4. VIEW CONTROLLERS (The Screens)
+# ==============================================================================
+
+def view_login():
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.image("https://cdn-icons-png.flaticon.com/512/3299/3299956.png", width=80)
+    st.markdown("## BinLens \n **Swachh Karnataka Mission**")
+    
+    st.info("Demo Accounts:\n\n👤 Citizen: 9876543210\n🚚 Driver: driver123\n🏪 Merchant: shop123\n🏛️ Admin: admin1")
+    
+    user_id = st.text_input("User ID / Phone")
+    
+    if st.button("Login Securely", use_container_width=True):
+        user = system.login(user_id)
+        if user:
+            st.session_state.role = user['role']
+            st.session_state.user_data = user
+            
+            # Role-Based Routing
+            if user['role'] == 'citizen': set_page('citizen_home')
+            elif user['role'] == 'driver': set_page('driver_home')
+            elif user['role'] == 'merchant': set_page('merchant_home')
+            elif user['role'] == 'admin': set_page('admin_dashboard')
+        else:
+            st.error("User not found in State Database.")
+
+def view_citizen_home():
+    render_mobile_header("Ward 17, Dharwad")
+    
+    # Hero Section: Live Tracking
+    st.markdown("""
+    <div class='card' style='background:#e3f2fd; border-left: 5px solid #2ECC71;'>
+        <h4 style='margin:0'>🚛 Truck Status</h4>
+        <h2 style='color:#2ECC71; margin:5px 0'>Arriving in 6 min</h2>
+        <p style='font-size:12px; color:grey;'>Driver: Basavaraj • Live GPS</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Simulated Map
+    map_df = pd.DataFrame(
+        np.random.randn(1, 2) / [1000, 1000] + [15.4602, 75.0081],
+        columns=['lat', 'lon'])
+    st.map(map_df, zoom=15, use_container_width=True)
+    
+    # Quick Actions Grid
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("<div class='card' style='text-align:center;'>📸<br><b>Scan Waste</b></div>", unsafe_allow_html=True)
+    with c2:
+        st.markdown("<div class='card' style='text-align:center;'>📢<br><b>Report Spot</b></div>", unsafe_allow_html=True)
+        
+    # Wallet Teaser
+    st.markdown(f"""
+    <div class='card'>
+        <div style='display:flex; justify-content:space-between;'>
+            <span><b>Eco-Wallet</b></span>
+            <span style='color:orange; font-weight:bold;'>{st.session_state.user_data['coins']} 🪙</span>
+        </div>
+        <p style='font-size:12px;'>Streak: {st.session_state.user_data['streak']} Days 🔥</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    render_nav_bar()
+
+def view_citizen_scan():
+    render_mobile_header("AI Waste Auditor", show_back=True)
+    
+    st.camera_input("Point at Open Bin")
+    
+    if st.button("Analyze Bin Content", use_container_width=True):
+        res = system.process_ai_scan()
+        
+        if res == "clean_dry":
+            st.success("✅ **Approved!** Dry Waste detected.")
+            st.markdown("Reward: **+10 Coins**")
+            st.button("Confirm Handover")
+        elif res == "greasy_wet":
+            st.error("🛑 **Contamination!**")
+            st.markdown("Grease detected on cardboard. Please rinse or compost.")
+        else:
+            st.warning("⚠️ **Hazardous Item!**")
+            st.markdown("Battery detected. Do not dump. Request E-Waste Pickup.")
+            
+    render_nav_bar()
+
+def view_citizen_market():
+    render_mobile_header("Rewards Bazaar", show_back=True)
+    
+    st.markdown("### 🔥 Popular Now")
+    
+    # Coupon Card 1
+    st.markdown("""
+    <div class='card'>
+        <div style='display:flex; gap:10px;'>
+            <div style='background:#ddd; width:50px; height:50px; border-radius:8px;'></div>
+            <div>
+                <b>Excellent Computers</b><br>
+                ₹10 Off on Printing
+            </div>
+        </div>
+        <button style='background:black; color:white; width:100%; border:none; padding:8px; border-radius:5px; margin-top:10px;'>Redeem (50 Coins)</button>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Coupon Card 2
+    st.markdown("""
+    <div class='card'>
+        <div style='display:flex; gap:10px;'>
+            <div style='background:#ddd; width:50px; height:50px; border-radius:8px;'></div>
+            <div>
+                <b>HESCOM Bill Pay</b><br>
+                ₹50 Rebate
+            </div>
+        </div>
+        <button style='background:black; color:white; width:100%; border:none; padding:8px; border-radius:5px; margin-top:10px;'>Redeem (500 Coins)</button>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    render_nav_bar()
+
+def view_driver_app():
+    # Dark Mode CSS Injection for this screen only
+    st.markdown("""<style>.mobile-frame {background-color: #121212; color: white;} .card {background-color: #333; color: white; border:none;}</style>""", unsafe_allow_html=True)
+    
+    render_mobile_header("🚛 Driver Shield")
+    
+    st.info("Route: **Maratha Colony** | Shift: **Active**")
+    
+    # Map Placeholder
+    st.markdown("<div style='height:200px; background:#333; border-radius:15px; display:flex; align-items:center; justify-content:center; color:#555;'>NAV MAP</div>", unsafe_allow_html=True)
+    
+    st.write("### 🛑 Upcoming Pickup")
+    st.markdown("""
+    <div class='card' style='border-left: 4px solid yellow;'>
+        <b>House #45 (Rohan)</b><br>
+        Request: Bulk E-Waste (2kg)<br>
+        <small>Verified via App</small>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    c1, c2 = st.columns(2)
+    with c1: st.button("✅ Verify User", use_container_width=True)
+    with c2: st.button("⚠️ Report Halt", use_container_width=True)
+    
+    if st.button("End Shift (Logout)"):
+        set_page('login')
+
+def view_admin_dashboard():
+    st.markdown("## 🏛️ State Command Center")
+    st.caption("Karnataka Urban Development Dept")
+    
+    # Top Metrics
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Trucks", "23/25")
+    c2.metric("Plastic", "4.5T")
+    c3.metric("Rev", "₹5L")
+    
+    st.write("### 📉 EPR Compliance Trend")
+    st.line_chart(system.generate_epr_report().set_index("Month"))
+    
+    st.write("### 📍 Live Black Spots")
+    st.dataframe(pd.DataFrame({
+        "Ward": [17, 22, 45],
+        "Severity": ["High", "Medium", "Low"],
+        "Status": ["Pending", "Assigned", "Cleared"]
+    }), use_container_width=True)
+    
+    if st.button("Logout"):
+        set_page('login')
+
+# ==============================================================================
+# 5. MAIN RENDERER (The "Phone" Container)
+# ==============================================================================
+
+def main():
+    # Only render the phone frame logic
+    with st.container():
+        # Routing Logic
+        if st.session_state.current_page == 'login':
+            view_login()
+        elif st.session_state.current_page == 'citizen_home':
+            view_citizen_home()
+        elif st.session_state.current_page == 'citizen_scan':
+            view_citizen_scan()
+        elif st.session_state.current_page == 'citizen_market':
+            view_citizen_market()
+        elif st.session_state.current_page == 'settings':
+            st.write("Settings Page")
+            if st.button("Logout"): set_page('login')
+            render_nav_bar()
+        elif st.session_state.current_page == 'driver_home':
+            view_driver_app()
+        elif st.session_state.current_page == 'merchant_home':
+            st.title("Merchant Scanner")
+            st.button("Logout", on_click=lambda: set_page('login'))
+        elif st.session_state.current_page == 'admin_dashboard':
+            view_admin_dashboard()
+
+if __name__ == "__main__":
+    main()
